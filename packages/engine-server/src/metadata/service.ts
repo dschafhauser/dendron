@@ -22,6 +22,18 @@ export enum ShowcaseEntry {
   PublishTheme = "PublishTheme",
 }
 
+// export enum BacklinksPanelSortOrder {
+//   UpdateTime = "updateTime",
+//   NoteName = "noteName",
+// }
+
+export enum BacklinkSortOrder {
+  /** Using path sorted so order with shallow first = true */
+  PathNames = "PathNames",
+
+  LastUpdated = "LastUpdated",
+}
+
 type Metadata = Partial<{
   /**
    * When was dendron first installed
@@ -92,6 +104,8 @@ type Metadata = Partial<{
    * tree view item label type
    */
   treeViewItemLabelType: TreeViewItemLabelTypeEnum;
+
+  backlinksPanelSortOrder: BacklinkSortOrder;
 }>;
 
 export enum InactvieUserMsgStatusEnum {
@@ -186,6 +200,10 @@ export class MetadataService {
     );
   }
 
+  get BacklinksPanelSortOrder(): BacklinkSortOrder | undefined {
+    return this.getMeta().backlinksPanelSortOrder;
+  }
+
   setMeta(key: keyof Metadata, value: any) {
     const stateFromFile = this.getMeta();
     stateFromFile[key] = value;
@@ -271,5 +289,9 @@ export class MetadataService {
 
   setTreeViewItemLabelType(labelType: TreeViewItemLabelTypeEnum) {
     this.setMeta("treeViewItemLabelType", labelType);
+  }
+
+  set BacklinksPanelSortOrder(sortOrder: BacklinkSortOrder | undefined) {
+    this.setMeta("backlinksPanelSortOrder", sortOrder);
   }
 }
