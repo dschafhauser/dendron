@@ -25,8 +25,6 @@ import _ from "lodash";
 import path from "path";
 import * as vscode from "vscode";
 import { Uri } from "vscode";
-import { CommandFactory } from "./commandFactory";
-import { ICommandFactory } from "./commandFactoryInterface";
 import { LookupControllerV3Factory } from "./components/lookup/LookupControllerV3Factory";
 import { ILookupControllerV3Factory } from "./components/lookup/LookupControllerV3Interface";
 import {
@@ -44,8 +42,10 @@ import {
   IDendronExtension,
 } from "./dendronExtensionInterface";
 import { ExtensionProvider } from "./ExtensionProvider";
-import BacklinksTreeDataProvider from "./features/BacklinksTreeDataProvider";
 import { Backlink } from "./features/Backlink";
+import BacklinksTreeDataProvider from "./features/BacklinksTreeDataProvider";
+import setupHelpFeedbackTreeView from "./features/HelpFeedbackTreeview";
+import TipOfTheDayWebview from "./features/TipOfTheDayWebview";
 import { FileWatcher } from "./fileWatcher";
 import { Logger } from "./logger";
 import { CommandRegistrar } from "./services/CommandRegistrar";
@@ -56,22 +56,20 @@ import {
 } from "./services/NoteTraitService";
 import { SchemaSyncService } from "./services/SchemaSyncService";
 import { ISchemaSyncService } from "./services/SchemaSyncServiceInterface";
+import { ALL_FEATURE_SHOWCASES } from "./showcase/AllFeatureShowcases";
 import { UserDefinedTraitV1 } from "./traits/UserDefinedTraitV1";
 import { BacklinkSortOrder } from "./types";
 import { DisposableStore } from "./utils";
 import { AnalyticsUtils, sentryReportingCallback } from "./utils/analytics";
 import { VersionProvider } from "./versionProvider";
+import { CalendarView } from "./views/CalendarView";
+import { GraphPanel } from "./views/GraphPanel";
 import { SampleView } from "./views/SampleView";
 import { VSCodeUtils } from "./vsCodeUtils";
 import { WindowWatcher } from "./windowWatcher";
 import { WorkspaceWatcher } from "./WorkspaceWatcher";
 import { WSUtilsV2 } from "./WSUtilsV2";
 import { IWSUtilsV2 } from "./WSUtilsV2Interface";
-import { CalendarView } from "./views/CalendarView";
-import TipOfTheDayWebview from "./features/TipOfTheDayWebview";
-import { ALL_FEATURE_SHOWCASES } from "./showcase/AllFeatureShowcases";
-import setupHelpFeedbackTreeView from "./features/HelpFeedbackTreeview";
-import { GraphPanel } from "./views/GraphPanel";
 
 let _DendronWorkspace: DendronExtension | null;
 
@@ -136,7 +134,6 @@ export class DendronExtension implements IDendronExtension {
   private _disposableStore: DisposableStore;
   private _traitRegistrar: NoteTraitService;
   private L: typeof Logger;
-  private treeViews: { [key: string]: vscode.WebviewViewProvider };
 
   public backlinksDataProvider: BacklinksTreeDataProvider | undefined;
   public fileWatcher?: FileWatcher;
@@ -153,7 +150,6 @@ export class DendronExtension implements IDendronExtension {
   public type: WorkspaceType;
   public workspaceImpl?: DWorkspaceV2;
   public wsUtils: IWSUtilsV2;
-  public commandFactory: ICommandFactory;
 
   static context(): vscode.ExtensionContext {
     return getExtension().context;
@@ -359,11 +355,9 @@ export class DendronExtension implements IDendronExtension {
     _DendronWorkspace = this;
     this.L = Logger;
     this._disposableStore = new DisposableStore();
-    this.treeViews = {};
     this.setupViews(context);
     this._traitRegistrar = new NoteTraitManager(new CommandRegistrar(this));
     this.wsUtils = new WSUtilsV2(this);
-    this.commandFactory = new CommandFactory(this);
     this.schemaSyncService = new SchemaSyncService(this);
     this.lookupControllerFactory = new LookupControllerV3Factory(this);
     this.noteLookupProviderFactory = new NoteLookupProviderFactory(this);
@@ -490,18 +484,12 @@ export class DendronExtension implements IDendronExtension {
     this.getWorkspaceImplOrThrow().engine = engine;
   }
 
-  getTreeView(key: DendronTreeViewKey) {
-    return this.treeViews[key];
-  }
-
   async setupViews(context: vscode.ExtensionContext) {
     const ctx = "setupViews";
     HistoryService.instance().subscribe("extension", async (event) => {
       if (event.action === "initialized") {
         Logger.info({ ctx, msg: "init:treeViewV2" });
         const sampleView = new SampleView();
-
-        this.treeViews[DendronTreeViewKey.SAMPLE_VIEW] = sampleView;
 
         context.subscriptions.push(
           vscode.window.registerWebviewViewProvider(
@@ -511,7 +499,6 @@ export class DendronExtension implements IDendronExtension {
         );
 
         const calendarView = new CalendarView(this);
-        this.treeViews[DendronTreeViewKey.CALENDAR_VIEW] = calendarView;
         context.subscriptions.push(
           vscode.window.registerWebviewViewProvider(
             CalendarView.viewType,
@@ -530,7 +517,6 @@ export class DendronExtension implements IDendronExtension {
 
         // Graph panel (side)
         const graphPanel = new GraphPanel(this);
-        this.treeViews[DendronTreeViewKey.GRAPH_PANEL] = graphPanel;
         context.subscriptions.push(
           vscode.window.registerWebviewViewProvider(
             GraphPanel.viewType,
